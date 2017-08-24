@@ -1,0 +1,43 @@
+#: init/zmvscmd-service.js
+msgid "Server CI doesn't exist"
+msgstr "El Server CI no existe"
+
+#: init/zmvscmd-service.js
+msgid "Server CI is not MVS type."
+msgstr "El Server CI no es de tipo MVS."
+
+#: init/zmvscmd-service.js
+msgid "Program not informed."
+msgstr "Programa no informado."
+
+#: init/zmvscmd-service.js
+msgid "Command not informed."
+msgstr "Comando no informado."
+
+#: public/form/zmvscmd-service-form.js
+msgid "Type of command"
+msgstr "Tipo de comando"
+
+#: public/form/zmvscmd-service-form.js
+msgid "Cics Newcopy"
+msgstr "CICS refresco programa"
+
+#: public/form/zmvscmd-service-form.js
+msgid "Console Command"
+msgstr "Comando de consola"
+
+#: public/form/zmvscmd-service-form.js
+msgid "Server"
+msgstr "Servidor"
+
+#: public/form/zmvscmd-service-form.js
+msgid "Command"
+msgstr "Comando"
+
+#: public/form/zmvscmd-service-form.js
+msgid "Program name"
+msgstr "Nombre de Programa"
+
+#: public/form/zmvscmd-service-form.js
+msgid "CICS name"
+msgstr "Nombre del CICS"

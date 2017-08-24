@@ -1,0 +1,367 @@
+/* REXX - CLACMD */
+/**********************************************************************/
+/*                                                                    */
+/* Function: The CLACMD  REXX executable (REXX exec) issues a system  */
+/*           command for the caller. It can optionally look for the   */
+/*           expected message text in the command responses, reply to */
+/*           the first Reply to the Write to Operator Reply (WTOR) if */
+/*           there is one, and look for the expected message text in  */
+/*           the REPLY command responses.                             */
+/*                                                                    */
+/* Parameters: CMD  or CMD()                               (required) */
+/*                        system command                              */
+/*             CON()                                       (optional) */
+/*                        alphanumeric EMCS console name              */
+/*             DLY()                                       (optional) */
+/*                        response delay limit in seconds             */
+/*             INT()               (default to N)          (optional) */
+/*                        issue command with I/                       */
+/*             MSG()                                       (optional) */
+/*                        expected response message ID                */
+/*             QUI()               (default to N)          (optional) */
+/*                        output display option                       */
+/*             RPY()                                       (optional) */
+/*                        reply command operands                      */
+/*             RMG()                                       (optional) */
+/*                        expected REPLY command response message ID  */
+/*             TRY()               (default to 0)          (optional) */
+/*                        retry with alternate EMCS console           */
+/*             WAI()               (default to N)          (optional) */
+/*                        issue command with W/                       */
+/*                                                                    */
+/* Return Code: 00 command issued, expected response found, REPLY     */
+/*                 issued.                                            */
+/*              04 command issued, no checking for expected response, */
+/*                 REPLY not issued.                                  */
+/*              08 command issued, expected response not found.       */
+/*              12 command issued, no expected REPLY prompt received. */
+/*              16 REPLY issued, no checking for expected REPLY       */
+/*                 response.                                          */
+/*              20 REPLY issued, expected REPLY message not found.    */
+/*              24 ISFEXEC host command failed.                       */
+/*              28 ISFCALLS host environment failed.                  */
+/*              99 invalid keyword parameters.                        */
+/*                                                                    */
+/* Output displayed:                                                  */
+/*             Echo input parameters                                  */
+/*             Host Environment status                                */
+/*             Echo system command issued                             */
+/*             system command responses                               */
+/*             SDSF short message                                     */
+/*             SDSF messages (including long error messages)          */
+/*                                                                    */
+/**********************************************************************/
+
+  /* PARSE ARG arguments */
+  arguments = "CMD($$$)"
+  if recuarg(arguments)      <> 0 then call exrout(99)
+  if Henvir('establish')     <> 0 then call exrout(28)
+  if buscacon(retrycount)    <> 0 then call exrout(24)
+  if envcomando(syscmdo)     <> 0 then call exrout(24)
+  if pos('SHARED',ISFULOG.1) > 0 | ,
+     pos('FAILED',ISFULOG.1) > 0 | ,
+     inopt <> ''                  then call exrout(4)
+  if buscamsg(respcomnd)     <> 0 then call exrout(8)
+  if repcmd(replycmd) <> 0        then call exrout(rcode)
+  if pos('SHARED',ISFULOG.1) > 0 | ,
+     pos('FAILED',ISFULOG.1) > 0 | ,
+     inopt <> ''                  then call exrout(16)
+  if buscamsg(replresp)  = 8      then call exrout(20)
+  call exrout(0)
+
+recuarg:
+  parse arg parms
+  if parseparms(parms) > 0 then rcode = 99
+  else do
+     syscmdo    = ''
+     ISFCONS    = ''
+     ISFDELAY   = ''
+     inopt      = ''
+     respcomnd  = ''
+     quietopt   = 'N'
+     replycmd   = ''
+     replresp   = ''
+     retrycount = 0
+     waitopt    = ''
+     rcode      = 0
+     do i = 1 to operix
+        keyword.i = translate(keyword.i)
+        select
+           when (keyword.i = 'COMMAND') | (keyword.i = 'CMD') then do
+              syscmdo = handleapost(value.i)
+              if datatype(syscmdo) = "NUM" then do
+                 rcode = 99
+                 leave
+              end
+           end
+           when (keyword.i = 'CONSOLE') | (keyword.i = 'CONS') then
+   ISFCONS = value.i
+           when (keyword.i = 'DELAY')   | (keyword.i = 'DLY') then
+              ISFDELAY = value.i
+           when (keyword.i = 'INTERNAL')| (keyword.i = 'INT') then
+              if left(translate(value.i),1) = 'Y' then
+                 inopt = 'INTERNAL'
+           when (keyword.i = 'MESSAGE') | (keyword.i = 'MSG') then
+              respcomnd = translate(value.i)
+           when (keyword.i = 'QUIET')   | (keyword.i = 'Q') then
+              if left(translate(value.i),1) = 'Y' then
+                 quietopt = 'Y'
+           when (keyword.i = 'REPLY')   | (keyword.i = 'RPY') then do
+              replycmd = handleapost(value.i)
+              if datatype(replycmd) = "NUM" then do
+                 rcode = 99
+                 leave
+              end
+              end
+           when (keyword.i = 'REPLYMSG') | (keyword.i = 'RMSG') then
+              replresp = translate(value.i)
+           when (keyword.i = 'RETRY')   | (keyword.i = 'TRY') then
+              if datatype(value.i) = "NUM" then
+                 retrycount = value.i
+           when (keyword.i = 'WAIT')    | (keyword.i = 'W') then
+              if left(translate(value.i),1) = 'Y' then
+                 waitopt = 'WAIT'
+           otherwise do
+              say '***** Error - Unknown parameter' keyword.i || ,
+                  ', RC=99'
+              rcode = 99
+              leave
+           end
+        end
+     end
+  end
+  if quietopt = 'N' then say 'CLACMD operands  :' parms
+  return rcode
+
+parseparms:
+  parse arg parms
+  comnd = "CMD CON DELAY INT MSG QUI RPY RMG TRY WAI"
+  parmx = translate(parms," ","(")
+  inm = words(parmx)
+  operix = 0
+  do inx = 1 to inm
+    posfind = wordpos(word(parmx,inx),comnd)
+
+    if posfind > 0 then do
+      operix = operix + 1
+      ilf = operix - 1
+      keylen.operix = length(word(parmx,inx))
+      posini.operix = wordindex(parmx,inx)
+      if ilf > 0 then posfin.ilf = wordindex(parmx,inx) - 1
+    end
+ end
+ posfin.operix = length(parmx) - 1
+
+ do i = 1 to operix
+ ttx = strip(substr(parms,posini.i,posfin.i))
+ keyword.i = substr(ttx,1,keylen.i)
+ largo     = length(ttx) - keylen.i - 1
+ IF largo < 1 then return 12
+ value.i   = substr(ttx,keylen.i + 2,largo)
+ end
+ return 0
+
+handleapost:
+  parse arg parm2
+  newparm2 = ""
+  cursor    = 1
+  rcode     = 0
+  do forever
+     quotestart = pos("'",parm2,cursor)
+     if quotestart = 0 then do
+        newparm2 = newparm2 || substr(parm2,cursor)
+        leave
+     end
+     quoteend = pos("'",parm2,quotestart+1)
+     if quoteend = 0 then do
+        say '***** Error - no matching single quote for quote in' ,
+            'column' quotestart
+        return 99
+     end
+     newparm2 = newparm2                                || ,
+        substr(parm2,cursor,quotestart-cursor+1)         || ,
+        "'"                                               || ,
+        substr(parm2,quotestart+1,quoteend-quotestart) || ,
+        "'"
+     cursor = quoteend + 1
+  end
+  return newparm2
+
+Henvir:
+  parse arg environment
+  if translate(environment) = 'ESTABLISH' then
+     rcode = ISFCALLS('ON')
+  else
+     rcode = ISFCALLS('OFF')
+  select
+     when (rcode = 0) then
+        if quietopt = 'N' then
+          if environment = 'establish' then
+             say 'SDSF HCE status   : established RC=00'
+          else do
+             say copies('-',131)
+             say 'SDSF HCE status   : revoked RC=00'
+          end
+     when (rcode = 1) then
+        say 'SDSF HCE status   : not established RC=01'
+     when (rcode = 2) then
+        say 'SDSF HCE status   : not established RC=02'
+     when (rcode = 3) then
+        say 'SDSF HCE status   : delete failed RC=03'
+     otherwise
+        say 'SDSF HCE status   : failed, unrecognized RC=' rcode
+  end
+  return rcode
+
+buscacon:
+  parse arg emcsindex
+  if emcsindex = 0 | inopt <> '' then
+     rcode = 0
+  else do
+     testcmd       = 'D T'
+     savedisfcons  = ''
+     savedisfdelay = ISFDELAY
+     rcode          = 0
+     ISFDELAY       = ''
+     do jx = 1 to emcsindex
+        if envcomando(testcmd) <> 0 then do
+           rcode = 24
+           leave
+        end
+        if (pos('SHARED',ISFULOG.1) = 0) & ,
+           (pos('FAILED',ISFULOG.1) = 0) & ,
+           (inopt = '') then
+           leave
+        else do
+           if savedisfcons = '' then
+              savedisfcons = word(ISFULOG.1,6)
+           if length(savedisfcons) < 8 then
+              ISFCONS = savedisfcons || jx
+           else do
+              say '***WARNING: original EMCS console' ,
+                  savedisfcons 'has 8 characters,' ,
+                  'RETRY operand ignored'
+              leave
+           end
+        end
+
+     end
+     ISFDELAY = savedisfdelay
+  end
+  return rcode
+
+envcomando:
+ parse arg syscmd
+ slashcmd = "/" || syscmd
+ options   = '(' || waitopt inopt || ')'
+ if quietopt = 'N' then do
+  say copies('-',131)
+  say 'ISFEXEC options   :' options
+  if syscmd = testcmd then
+   say 'Test command      :' slashcmd
+  else
+   say 'Original command  :' slashcmd
+ end
+ address SDSF "ISFEXEC '"slashcmd"' " options
+ rcode = rc
+ if quietopt = 'N' then do
+  say ' ';say 'SDSF short message:' ISFMSG
+  do ix = 1 to ISFMSG2.0
+   say 'SDSF long  message:' ISFMSG2.ix;end
+  say ' '; say 'SDSF ULOG messages:'
+  do ix = 1 to ISFULOG.0;say ISFULOG.ix;end
+ end
+ return rcode
+
+buscamsg:
+ parse arg rspmsg
+ if rspmsg = '' then rcode = 0
+ else do
+  rcode  = 8
+  do jx = 1 to ISFULOG.0
+   if pos(rspmsg,ISFULOG.jx) > 0 then do rcode=0;leave;end
+  end
+ end
+ return rcode
+
+repcmd:
+ parse arg replycmd
+ if replycmd = '' then rcode = 0
+ else do
+  rcode = 12
+  do lx = 1 to ISFULOG.0
+   msgid = word(ISFULOG.lx,4)
+   if substr(msgid,1,1) = '*' then do
+    rid = substr(msgid,2)
+    if datatype(rid) = "NUM" then do
+     rcode = envcomando('R' rid||','||replycmd)
+     leave
+    end
+   end
+  end
+ end
+ return rcode
+
+exrout:
+ parse arg rcode
+ if (quietopt = 'N') | (rcode > 0) then do
+  say ' '
+  select
+   when (rcode = 0) then do
+    say 'Command result    : RC=00 System command issued,' ,
+        'response received from the EMCS console.'
+    if respcomnd <> '' then
+     say copies(' ',26) || 'Message' respcomnd ,
+         'found in the command responses.'
+    if replycmd    <> '' then
+     say copies(' ',26) || 'MVS REPLY command issued.'
+    if replresp   <> '' then
+     say copies(' ',26) || 'Message' replresp ,
+      'found in the REPLY response.'
+   end
+   when (rcode = 4) then do
+    say 'Command result    : RC=04 System command issued,' ,
+        'no response received from the EMCS console.'
+    say copies(' ',26) || ,
+        'Console used is an internal console or' ,
+        'a shared EMCS console.'
+    if respcomnd <> '' then say copies(' ',26) || ,
+        'Note: command responses not checked.'
+    if replycmd    <> '' then
+     say copies(' ',26) || 'Note: REPLY command not issued.'
+   end
+   when (rcode = 8) then do
+    say 'Command result    : RC=08 System command issued,' ,
+        'expected message' respcomnd 'not found.'
+    if replycmd <> '' then
+     say copies(' ',26) || 'Note: REPLY command not issued.'
+   end
+   when (rcode = 12) then
+    say 'Command result    : RC=12 System command issued,' ,
+        'expected REPLY prompt not found.'
+   when (rcode = 16) then do
+    say 'Command result    : RC=16 REPLY command issued,' ,
+        'no response received from the EMCS console.'
+    say copies(' ',26) || ,
+        'Console used is an internal console or' ,
+        'a shared EMCS console.'
+    if replresp <> '' then
+     say copies(' ',26) || 'Note: REPLY response not checked.'
+   end
+   when (rcode = 20) then
+    say 'Command result    : RC=20 REPLY command issued,' ,
+        'expected REPLY message' replresp 'not found.'
+   when (rcode = 24) then
+    say 'Command result    : RC=24 ISFEXEC host command failed.'
+   when (rcode = 28) then
+    say 'Command result    : RC=28' ,
+        'ISFCALLS host environment failed.'
+   when (rcode = 99) then
+    say 'Command result    : RC=99 Invalid keyword parameters.'
+   otherwise
+    say 'Unregonized return code.'
+  end
+ end
+ savedrc = rcode
+ if (rcode < 28) then call Henvir('revoke')
+ exit savedrc
