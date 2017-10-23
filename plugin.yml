@@ -1,0 +1,9 @@
+name: Clarive Zmvscmd Plugin
+description: The ZMVSCMD plugin will allow you to execute z/OS commands into your Mainframe from Clarive.
+version: 1.0
+icon: https://github.com/clarive/cla-zmvscmd-plugin/public/icon/zmvscmd.svg
+url: https://github.com/clarive/cla-zmvscmd-plugin
+requires:
+  - clarive_version: 6.8 <= version
+dependencies:
+  - cla-zmvscmd-plugin
