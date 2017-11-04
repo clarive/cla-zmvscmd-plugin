@@ -8,6 +8,8 @@ This plugin will allow you to execute z/OS commands into your Mainframe server f
 
 At least one server running z/OS.
 
+A Clax agent installed and configured on that machine.
+
 ## Installation
 
 To install this plugin, place the `cla-zmvscmd-plugin` folder inside the `$CLARIVE_BASE/plugins` directory in a Clarive
