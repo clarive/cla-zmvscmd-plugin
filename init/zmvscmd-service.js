@@ -3,6 +3,25 @@ reg.register("service.zmvscmd.start", {
     name: "Execute Zconsole command",
     icon: "/plugin/cla-zmvscmd-plugin/icon/zmvscmd-service.svg",
     form: "/plugin/cla-zmvscmd-plugin/form/zmvscmd-service-form.js",
+    rulebook: {
+        moniker: 'zconsole_command',
+        description: _('Executes Zconsole command'),
+        required: [ 'server', 'type'],
+        allow: ['server', 'type', 'command_text', 'program_name', 'cics_name', 'errors'],
+        mapper: {
+            'type': 'command',
+            'command_text':'commandText',
+            'program_name':'programName',
+            'cics_name':'cicsName'
+        },
+        examples: [{
+            zconsole_command: {
+                server: 'zconsole_server',
+                type: 'Zcommand',
+                command_text: 'D A,L'
+            }
+        }]
+    },
     handler: function(ctx, params) {
 
         var ci = require("cla/ci");
