@@ -1,6 +1,6 @@
 # z/OS plugin
 
-<img src="https://cdn.rawgit.com/clarive/cla-zmvscmd-plugin/master/public/icon/zmvscmd-service.svg?sanitize=true" alt="z/OS Plugin" title="z/OS Plugin" width="120" height="120">
+<img src="https://cdn.jsdelivr.net/gh/clarive/cla-zmvscmd-plugin@master/public/icon/zmvscmd-service.svg?sanitize=true" alt="z/OS Plugin" title="z/OS Plugin" width="120" height="120">
 
 This plugin will allow you to execute z/OS commands into your Mainframe server from Clarive instance.
 
